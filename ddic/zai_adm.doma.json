@@ -1,0 +1,25 @@
+{
+  "dd01v": {
+    "domname": "ZAI_ADM",
+    "ddlanguage": "E",
+    "datatype": "CHAR",
+    "leng": "000010",
+    "outputlen": "000010",
+    "valexi": "X",
+    "ddtext": "AI tools: administration function"
+  },
+  "dd07v": [
+    {
+      "valpos": "0001",
+      "ddlanguage": "E",
+      "domvalue_l": "TOOLSW",
+      "ddtext": "Switch tools on/off, tool group mapping"
+    },
+    {
+      "valpos": "0002",
+      "ddlanguage": "E",
+      "domvalue_l": "LOG",
+      "ddtext": "Audit and usage logs"
+    }
+  ]
+}

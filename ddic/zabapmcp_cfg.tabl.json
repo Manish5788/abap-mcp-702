@@ -1,0 +1,50 @@
+{
+  "dd09l": {
+    "tabname": "ZABAPMCP_CFG",
+    "as4local": "A",
+    "tabkat": "0",
+    "tabart": "APPL0",
+    "protokoll": "X",
+    "bufallow": "N"
+  },
+  "dd02v": {
+    "tabname": "ZABAPMCP_CFG",
+    "ddlanguage": "E",
+    "tabclass": "TRANSP",
+    "clidep": "X",
+    "ddtext": "MCP - configuration",
+    "mainflag": "X",
+    "contflag": "A",
+    "exclass": "4"
+  },
+  "dd03p": [
+    {
+      "fieldname": "MANDT",
+      "keyflag": "X",
+      "rollname": "MANDT",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "CFG_KEY",
+      "keyflag": "X",
+      "rollname": "CHAR30",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "CFG_VALUE",
+      "rollname": "ZCHAR60",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "DESCRIPTION",
+      "rollname": "CHAR120",
+      "adminfield": "0",
+      "comptype": "E"
+    }
+  ]
+}

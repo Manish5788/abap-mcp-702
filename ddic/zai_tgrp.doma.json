@@ -1,0 +1,61 @@
+{
+  "dd01v": {
+    "domname": "ZAI_TGRP",
+    "ddlanguage": "E",
+    "datatype": "CHAR",
+    "leng": "000010",
+    "outputlen": "000010",
+    "valexi": "X",
+    "ddtext": "AI tools: tool group"
+  },
+  "dd07v": [
+    {
+      "valpos": "0001",
+      "ddlanguage": "E",
+      "domvalue_l": "CONFIG",
+      "ddtext": "Transactions, IMG and configuration rows"
+    },
+    {
+      "valpos": "0002",
+      "ddlanguage": "E",
+      "domvalue_l": "DDIC",
+      "ddtext": "Dictionary, fields, messages, auth objects"
+    },
+    {
+      "valpos": "0003",
+      "ddlanguage": "E",
+      "domvalue_l": "SEARCH",
+      "ddtext": "Object search and where-used"
+    },
+    {
+      "valpos": "0004",
+      "ddlanguage": "E",
+      "domvalue_l": "CODE",
+      "ddtext": "Read custom source code"
+    },
+    {
+      "valpos": "0005",
+      "ddlanguage": "E",
+      "domvalue_l": "TRANSP",
+      "ddtext": "Transport and change history"
+    },
+    {
+      "valpos": "0006",
+      "ddlanguage": "E",
+      "domvalue_l": "REVIEW",
+      "ddtext": "Open transport requests"
+    },
+    {
+      "valpos": "0007",
+      "ddlanguage": "E",
+      "domvalue_l": "DIAG",
+      "ddtext": "Short dumps (ST22)"
+    },
+    {
+      "valpos": "0008",
+      "ddlanguage": "E",
+      "domvalue_l": "BW",
+      "ddtext": "BW extractor (DataSource) metadata"
+    }
+  ]
+}

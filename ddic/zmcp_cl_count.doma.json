@@ -1,0 +1,10 @@
+{
+  "dd01v": {
+    "domname": "ZMCP_CL_COUNT",
+    "ddlanguage": "E",
+    "datatype": "INT4",
+    "leng": "000010",
+    "outputlen": "000011",
+    "ddtext": "MCP config tool counter"
+  }
+}

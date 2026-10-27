@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZAI_ADM",
+    "ddlanguage": "E",
+    "domname": "ZAI_ADM",
+    "headlen": "5",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "AI tools: administration function",
+    "reptext": "Admin",
+    "scrtext_s": "Admin fn",
+    "scrtext_m": "AI admin function",
+    "scrtext_l": "AI tools administration function",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

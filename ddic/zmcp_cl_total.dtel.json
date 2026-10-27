@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_TOTAL",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_COUNT",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "Rows or hits that matched",
+    "reptext": "Matched",
+    "scrtext_s": "Matched",
+    "scrtext_m": "Rows matched",
+    "scrtext_l": "Rows or hits that matched",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

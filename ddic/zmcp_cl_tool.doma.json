@@ -1,0 +1,11 @@
+{
+  "dd01v": {
+    "domname": "ZMCP_CL_TOOL",
+    "ddlanguage": "E",
+    "datatype": "CHAR",
+    "leng": "000030",
+    "outputlen": "000030",
+    "lowercase": "X",
+    "ddtext": "MCP config tool name"
+  }
+}

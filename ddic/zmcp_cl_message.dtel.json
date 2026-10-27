@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_MESSAGE",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_TEXT",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "MCP config tool refusal or error text",
+    "reptext": "Message",
+    "scrtext_s": "Message",
+    "scrtext_m": "Refusal / error",
+    "scrtext_l": "Refusal or error message",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

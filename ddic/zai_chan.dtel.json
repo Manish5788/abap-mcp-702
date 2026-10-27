@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZAI_CHAN",
+    "ddlanguage": "E",
+    "domname": "ZAI_CHAN",
+    "headlen": "7",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "AI tools: way in (channel)",
+    "reptext": "Channel",
+    "scrtext_s": "Channel",
+    "scrtext_m": "AI channel",
+    "scrtext_l": "AI tools channel (way in)",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

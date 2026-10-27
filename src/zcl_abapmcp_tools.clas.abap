@@ -1,3 +1,4 @@
+CLASS zcl_abapmcp_tools DEFINITION PUBLIC FINAL CREATE PUBLIC.
 *&---------------------------------------------------------------------*
 *& The tools. Read-only access to the ABAP repository.
 *&
@@ -8,6 +9,9 @@
 *& NAMESPACE GUARD
 *& Only Z and Y objects can be read. Enforced here, in ABAP, before any
 *& tool body runs. A prompt instruction is advice; this is a gate.
+*& One exception: SAP_GET_DDIC also reads SAP standard tables and
+*& structures - a field list is metadata, not data or source, and
+*& functional consultants need it to verify table names.
 *&
 *& SOURCE PAGING
 *& A 2800 line program does not fit in a model's context, and its first
@@ -18,7 +22,6 @@
 *&
 *& NW 7.02 syntax only: no inline DATA( ), no VALUE #( ), no NEW.
 *&---------------------------------------------------------------------*
-CLASS zcl_abapmcp_tools DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
 
@@ -29,6 +32,12 @@ CLASS zcl_abapmcp_tools DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CLASS-METHODS get_tool_defs
       RETURNING VALUE(ro_json) TYPE REF TO zif_ajson
       RAISING   zcx_ajson_error.
+
+*   May the caller come in this way? Wrapper for ZCL_AI_AUTH=>
+*   CHECK_CHANNEL.
+    CLASS-METHODS is_authorised
+      IMPORTING im_channel   TYPE zai_chan DEFAULT 'MCP'
+      RETURNING VALUE(rv_ok) TYPE abap_bool.
 
     CLASS-METHODS execute
       IMPORTING iv_name          TYPE string
@@ -51,6 +60,8 @@ CLASS zcl_abapmcp_tools DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_tool      TYPE string
       RETURNING VALUE(rv_ok) TYPE abap_bool.
 
+PROTECTED SECTION.
+
   PRIVATE SECTION.
 
     CLASS-METHODS get_source
@@ -65,6 +76,13 @@ CLASS zcl_abapmcp_tools DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_name        TYPE string
       RETURNING VALUE(rv_json) TYPE string
       RAISING   zcx_ajson_error.
+
+*   Name check of the read tools: CHECK_CUSTOM plus the main program and
+*   includes of custom function groups (SAPLZ*, SAPLY*, LZ*, LY*).
+*   Write paths keep CHECK_CUSTOM.
+    CLASS-METHODS check_custom_read
+      IMPORTING iv_name      TYPE string
+      RETURNING VALUE(rv_ok) TYPE abap_bool.
 
     CLASS-METHODS search_objects
       IMPORTING iv_pattern     TYPE string
@@ -94,108 +112,92 @@ ENDCLASS.
 
 CLASS zcl_abapmcp_tools IMPLEMENTATION.
 
-*&---------------------------------------------------------------------*
-  METHOD get_tool_defs.
+  METHOD append_report.
 
-    DATA lv_json TYPE string.
-    DATA lt_mem  TYPE string_table.
-    DATA lv_mem  TYPE string.
-    DATA lv_path TYPE string.
-    DATA lv_tool TYPE string.
+    DATA lv_prog TYPE program.
+    DATA lt_tmp  TYPE string_table.
+    DATA lv_hdr  TYPE string.
 
-    CONCATENATE
-      `[`
-      `{"name":"sap_get_source",`
-      ` "description":"Read ABAP source of a custom program, include or class. For an object over 400 lines `
-      `the first call returns a structural skeleton covering the WHOLE object - tables read and written, `
-      `function modules and BAPIs called, and every routine listed by name with a complexity score - plus `
-      `the source of the routines carrying the most logic. Use that routine list: call again with routine `
-      `set to a name to read one routine in full. Prefer naming a routine over paging by line. from_line `
-      `and to_line exist only for includes that have no named routines.",`
-      ` "input_schema":{"type":"object","properties":{`
-      `   "name":{"type":"string","description":"Program, include or class name, e.g. ZFI_REPORT01 or ZCL_FOO."},`
-      `   "routine":{"type":"string","description":"Name of one routine from the skeleton's routine list."},`
-      `   "from_line":{"type":"integer","description":"Fallback only. First line to return."},`
-      `   "to_line":{"type":"integer","description":"Fallback only. Last line to return."}},`
-      `   "required":["name"]}},`
-      `{"name":"sap_get_ddic",`
-      ` "description":"Read the field list of a custom DDIC table or structure: field names, data types, `
-      `lengths, decimals, key flags, data elements and descriptions. Call this before writing a SELECT or `
-      `declaring a work area so names and types match the real system rather than being guessed.",`
-      ` "input_schema":{"type":"object","properties":{`
-      `   "name":{"type":"string","description":"Table or structure name, e.g. ZAI_API_LOG."}},`
-      `   "required":["name"]}},`
-      `{"name":"sap_search_objects",`
-      ` "description":"Search the repository directory for custom objects matching a NAME pattern. `
-      `This matches object names only - it cannot find which programs use an object. For that use `
-      `sap_where_used.",`
-      ` "input_schema":{"type":"object","properties":{`
-      `   "pattern":{"type":"string","description":"Pattern with * wildcards, must start with Z or Y, e.g. ZFI*."},`
-      `   "max_results":{"type":"integer","description":"Maximum hits, 1-100. Default 50."}},`
-      `   "required":["pattern"]}},`
-      `{"name":"sap_where_used",`
-      ` "description":"Where-used list for any custom object: tables, structures, data elements, function `
-      `modules, programs, classes, interfaces, methods, transactions and FORM routines. Reads the same `
-      `cross-reference indexes as SE11 and SE80. Each hit gives the include, the owning object where the `
-      `include belongs to a class, and how it is used. Use this whenever asked where something is used - `
-      `never guess candidates and read their source one by one.",`
-      ` "input_schema":{"type":"object","properties":{`
-      `   "name":{"type":"string","description":"Any custom object name, e.g. ZAI_API_LOG."}},`
-      `   "required":["name"]}}`
-      `]`
-      INTO lv_json.
+    lv_prog = iv_prog.
 
-    ro_json = zcl_ajson=>parse( lv_json ).
-
-*   ---- drop anything switched off in this system --------------------
-*   Deleting from the parsed array keeps one catalogue definition and
-*   avoids building the JSON conditionally, which would be far easier
-*   to get wrong.
-    lt_mem = ro_json->members( '' ).
-
-    LOOP AT lt_mem INTO lv_mem.
-      CONCATENATE '/' lv_mem '/name' INTO lv_path.
-      lv_tool = ro_json->get( lv_path ).
-      IF is_enabled( lv_tool ) = abap_false.
-        CONCATENATE '/' lv_mem INTO lv_path.
-        ro_json->delete( lv_path ).
-      ENDIF.
-    ENDLOOP.
-
-  ENDMETHOD.
-
-*&---------------------------------------------------------------------*
-  METHOD is_enabled.
-
-    DATA lv_list TYPE zabapmcp_cfg-cfg_value.
-    DATA lv_up   TYPE string.
-    DATA lv_hit  TYPE string.
-
-    rv_ok = abap_true.
-
-    SELECT SINGLE cfg_value FROM zabapmcp_cfg INTO lv_list
-      WHERE cfg_key = 'TOOLS_DISABLED'.
-
-    IF sy-subrc <> 0 OR lv_list IS INITIAL.
+    READ REPORT lv_prog INTO lt_tmp.
+    IF sy-subrc <> 0 OR lt_tmp IS INITIAL.
       RETURN.
     ENDIF.
 
-    lv_up = lv_list.
+    CONCATENATE '*--- ' iv_prog ' ---*' INTO lv_hdr.
+    APPEND lv_hdr TO ct_source.
+    APPEND LINES OF lt_tmp TO ct_source.
+
+  ENDMETHOD.
+
+
+  METHOD check_custom.
+
+    DATA lv_up TYPE string.
+
+    lv_up = iv_name.
     TRANSLATE lv_up TO UPPER CASE.
+    SHIFT lv_up LEFT DELETING LEADING space.
 
-    lv_hit = iv_tool.
-    TRANSLATE lv_hit TO UPPER CASE.
-    CONDENSE lv_hit.
+    IF lv_up IS INITIAL.
+      rv_ok = abap_false.
+      RETURN.
+    ENDIF.
 
-*   substring match is enough - tool names are distinct and none is a
-*   prefix of another
-    IF lv_up CS lv_hit.
+    IF lv_up(1) = 'Z' OR lv_up(1) = 'Y'.
+      rv_ok = abap_true.
+    ELSE.
       rv_ok = abap_false.
     ENDIF.
 
   ENDMETHOD.
 
+
+  METHOD check_custom_read.
 *&---------------------------------------------------------------------*
+*& A custom function group's main program is SAPL<group> and its
+*& includes are L<group><suffix>, so a group named Z... or Y... has
+*& source names starting SAPLZ, SAPLY, LZ or LY. SAP's own groups never
+*& start with Z or Y, so these four prefixes are always customer code.
+*& Only the read tools use this; abapsync's write checks keep
+*& CHECK_CUSTOM, so nothing new becomes writable.
+*&---------------------------------------------------------------------*
+
+    DATA lv_up TYPE string.
+
+    rv_ok = check_custom( iv_name ).
+    IF rv_ok = abap_true.
+      RETURN.
+    ENDIF.
+
+    lv_up = iv_name.
+    TRANSLATE lv_up TO UPPER CASE.
+    SHIFT lv_up LEFT DELETING LEADING space.
+
+    IF lv_up CP 'SAPLZ*' OR lv_up CP 'SAPLY*' OR lv_up CP 'LZ*' OR lv_up CP 'LY*'.
+      rv_ok = abap_true.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD error_json.
+
+    DATA lo_out TYPE REF TO zcl_ajson.
+    DATA lx     TYPE REF TO cx_root.
+
+    TRY.
+        lo_out = zcl_ajson=>create_empty( ).
+        lo_out->set( iv_path = '/error' iv_val = iv_msg ).
+        rv_json = lo_out->stringify( ).
+      CATCH cx_root INTO lx.
+        rv_json = '{"error":"internal"}'.
+    ENDTRY.
+
+  ENDMETHOD.
+
+
   METHOD execute.
 
     CONSTANTS lc_refuse TYPE string
@@ -210,11 +212,66 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
     DATA lv_to  TYPE i.
     DATA lx     TYPE REF TO cx_root.
 
+*   no authorization for the tool's group, no tool - also for programs
+*   that call a tool directly instead of over /sap/bc/mcp. ZCL_AI_AUTH
+*   decides (Z_AI_TOOL, or ZMCP_USE in AUTH_MODE LEGACY/DUAL).
+    IF zcl_ai_auth=>check_tool( iv_name ) = abap_false.
+      lv_nam = zcl_ai_auth=>last_reason( ).
+      rv_result = error_json( lv_nam ).
+      RETURN.
+    ENDIF.
+
 *   A tool switched off must also refuse to RUN, not merely vanish from
 *   the catalogue. A client with a cached tool list would otherwise
 *   still reach it.
     IF is_enabled( iv_name ) = abap_false.
       rv_result = error_json( 'This tool is switched off in this system.' ).
+      RETURN.
+    ENDIF.
+
+    IF zcl_abapmcp_sync=>handles( iv_name ) = abap_true.
+      rv_result = zcl_abapmcp_sync=>execute( iv_name  = iv_name
+                                             iv_input = iv_input ).
+      RETURN.
+    ENDIF.
+
+*   spec search and short dumps: take a question or a date, not an
+*   object name, so CHECK_CUSTOM does not apply - see ZCL_ABAPMCP_DIAG
+    IF zcl_abapmcp_diag=>handles( iv_name ) = abap_true.
+      rv_result = zcl_abapmcp_diag=>execute( im_name  = iv_name
+                                             im_input = iv_input ).
+      RETURN.
+    ENDIF.
+
+*   configuration lookups: about SAP standard objects by design, with
+*   their own guards for table rows - see ZCL_ABAPMCP_CUST
+    IF zcl_abapmcp_cust=>handles( iv_name ) = abap_true.
+      rv_result = zcl_abapmcp_cust=>execute( im_name  = iv_name
+                                             im_input = iv_input ).
+      RETURN.
+    ENDIF.
+
+*   transport and change history: take a word or one object name and
+*   guard Z/Y and S_TRANSPRT themselves - see ZCL_ABAPMCP_CTS
+    IF zcl_abapmcp_cts=>handles( iv_name ) = abap_true.
+      rv_result = zcl_abapmcp_cts=>execute( im_name  = iv_name
+                                            im_input = iv_input ).
+      RETURN.
+    ENDIF.
+
+*   BW extractors (DataSources): metadata, exits, BAdIs - see
+*   ZCL_ABAPMCP_BW
+    IF zcl_abapmcp_bw=>handles( iv_name ) = abap_true.
+      rv_result = zcl_abapmcp_bw=>execute( im_name  = iv_name
+                                           im_input = iv_input ).
+      RETURN.
+    ENDIF.
+
+*   session check: system, client, user, own authorizations - see
+*   ZCL_ABAPMCP_WHOAMI
+    IF zcl_abapmcp_whoami=>handles( iv_name ) = abap_true.
+      rv_result = zcl_abapmcp_whoami=>execute( im_name  = iv_name
+                                               im_input = iv_input ).
       RETURN.
     ENDIF.
 
@@ -225,8 +282,14 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
 
           WHEN 'sap_get_source'.
             lv_nam = lo_in->get( '/name' ).
-            IF check_custom( lv_nam ) = abap_false.
+            IF check_custom_read( lv_nam ) = abap_false.
               rv_result = error_json( lc_refuse ).
+              RETURN.
+            ENDIF.
+*           the package of the code must be readable (Z_AI_SCOPE)
+            IF zcl_ai_auth=>check_object( lv_nam ) = abap_false.
+              lv_pat = zcl_ai_auth=>last_reason( ).
+              rv_result = error_json( lv_pat ).
               RETURN.
             ENDIF.
             lv_rtn = lo_in->get( '/routine' ).
@@ -237,17 +300,18 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
                                     iv_from    = lv_frm
                                     iv_to      = lv_to ).
 
+*         a field list is metadata - standard tables are allowed too
           WHEN 'sap_get_ddic'.
             lv_nam = lo_in->get( '/name' ).
-            IF check_custom( lv_nam ) = abap_false.
-              rv_result = error_json( lc_refuse ).
+            IF lv_nam IS INITIAL.
+              rv_result = error_json( 'Give a table or structure name.' ).
               RETURN.
             ENDIF.
             rv_result = get_ddic( lv_nam ).
 
           WHEN 'sap_where_used'.
             lv_nam = lo_in->get( '/name' ).
-            IF check_custom( lv_nam ) = abap_false.
+            IF check_custom_read( lv_nam ) = abap_false.
               rv_result = error_json( lc_refuse ).
               RETURN.
             ENDIF.
@@ -278,29 +342,84 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
 
   ENDMETHOD.
 
-*&---------------------------------------------------------------------*
-  METHOD check_custom.
 
-    DATA lv_up TYPE string.
+  METHOD get_ddic.
+
+    DATA lo_out   TYPE REF TO zcl_ajson.
+    DATA lv_name  TYPE ddobjname.
+    DATA lt_dfies TYPE STANDARD TABLE OF dfies.
+    DATA ls_dfies TYPE dfies.
+    DATA lv_idx   TYPE i.
+    DATA lv_i     TYPE string.
+    DATA lv_path  TYPE string.
+    DATA lv_up    TYPE string.
+    DATA lv_key   TYPE abap_bool.
+    DATA lv_leng  TYPE i.
+    DATA lv_dec   TYPE i.
 
     lv_up = iv_name.
     TRANSLATE lv_up TO UPPER CASE.
-    SHIFT lv_up LEFT DELETING LEADING space.
+    CONDENSE lv_up.
+    lv_name = lv_up.
 
-    IF lv_up IS INITIAL.
-      rv_ok = abap_false.
+    CALL FUNCTION 'DDIF_FIELDINFO_GET'
+      EXPORTING
+        tabname        = lv_name
+      TABLES
+        dfies_tab      = lt_dfies
+      EXCEPTIONS
+        not_found      = 1
+        internal_error = 2
+        OTHERS         = 3.
+
+    IF sy-subrc <> 0 OR lt_dfies IS INITIAL.
+      rv_json = error_json( 'Table or structure not found' ).
       RETURN.
     ENDIF.
 
-    IF lv_up(1) = 'Z' OR lv_up(1) = 'Y'.
-      rv_ok = abap_true.
-    ELSE.
-      rv_ok = abap_false.
-    ENDIF.
+    lo_out = zcl_ajson=>create_empty( ).
+    lo_out->set( iv_path = '/object' iv_val = lv_up ).
+    lo_out->touch_array( '/fields' ).
+
+    LOOP AT lt_dfies INTO ls_dfies.
+      lv_idx = sy-tabix.
+      lv_i = lv_idx.
+      CONDENSE lv_i.
+
+      CONCATENATE '/fields/' lv_i '/name' INTO lv_path.
+      lo_out->set( iv_path = lv_path iv_val = ls_dfies-fieldname ).
+
+      CONCATENATE '/fields/' lv_i '/type' INTO lv_path.
+      lo_out->set( iv_path = lv_path iv_val = ls_dfies-datatype ).
+
+      lv_leng = ls_dfies-leng.
+      CONCATENATE '/fields/' lv_i '/length' INTO lv_path.
+      lo_out->set_integer( iv_path = lv_path iv_val = lv_leng ).
+
+      lv_dec = ls_dfies-decimals.
+      CONCATENATE '/fields/' lv_i '/decimals' INTO lv_path.
+      lo_out->set_integer( iv_path = lv_path iv_val = lv_dec ).
+
+      IF ls_dfies-keyflag = abap_true.
+        lv_key = abap_true.
+      ELSE.
+        lv_key = abap_false.
+      ENDIF.
+      CONCATENATE '/fields/' lv_i '/key' INTO lv_path.
+      lo_out->set_boolean( iv_path = lv_path iv_val = lv_key ).
+
+      CONCATENATE '/fields/' lv_i '/rollname' INTO lv_path.
+      lo_out->set( iv_path = lv_path iv_val = ls_dfies-rollname ).
+
+      CONCATENATE '/fields/' lv_i '/text' INTO lv_path.
+      lo_out->set( iv_path = lv_path iv_val = ls_dfies-fieldtext ).
+    ENDLOOP.
+
+    rv_json = lo_out->stringify( ).
 
   ENDMETHOD.
 
-*&---------------------------------------------------------------------*
+
   METHOD get_source.
 
     DATA lo_out      TYPE REF TO zcl_ajson.
@@ -322,6 +441,9 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
     DATA lv_budget   TYPE i.
     DATA lv_len      TYPE i.
     DATA lv_seoclass TYPE seoclsname.
+    DATA lv_clstype  TYPE seoclass-clstype.
+    DATA lv_root     TYPE c LENGTH 30.
+    DATA lv_inc      TYPE string.
 
     lv_name = iv_name.
     TRANSLATE lv_name TO UPPER CASE.
@@ -332,9 +454,19 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
 
 *   ---- read the whole object ----------------------------------------
     lv_seoclass = lv_name.
-    SELECT SINGLE clsname FROM seoclass INTO lv_seoclass
+    SELECT SINGLE clsname clstype FROM seoclass INTO (lv_seoclass, lv_clstype)
       WHERE clsname = lv_seoclass.
-    IF sy-subrc = 0.
+    IF sy-subrc = 0 AND lv_clstype = '1'.
+*     SEOCLASS holds interfaces too. An interface has one include, the
+*     name padded with = to 30 characters plus IU - the class path asked
+*     for method includes and dumped with CLASS_NOT_EXISTING.
+      lv_root = lv_name.
+      TRANSLATE lv_root USING ' ='.
+      CONCATENATE lv_root 'IU' INTO lv_inc.
+      append_report( EXPORTING iv_prog   = lv_inc
+                     CHANGING  ct_source = lt_source ).
+      lo_out->set( iv_path = '/type' iv_val = 'INTF' ).
+    ELSEIF sy-subrc = 0.
       read_class_source( EXPORTING iv_class  = lv_name
                          IMPORTING et_source = lt_source ).
       lo_out->set( iv_path = '/type' iv_val = 'CLAS' ).
@@ -507,7 +639,155 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
 
   ENDMETHOD.
 
+
+  METHOD get_tool_defs.
+
+    DATA lv_json TYPE string.
+    DATA lt_mem  TYPE string_table.
+    DATA lv_mem  TYPE string.
+    DATA lv_path TYPE string.
+    DATA lv_tool TYPE string.
+    DATA lv_sync TYPE string.
+    DATA lv_diag TYPE string.
+    DATA lv_cust TYPE string.
+    DATA lv_cts  TYPE string.
+    DATA lv_bw   TYPE string.
+    DATA lv_who  TYPE string.
+
+    lv_sync = zcl_abapmcp_sync=>get_tool_defs_json( ).
+*   sap_get_dumps
+    lv_diag = zcl_abapmcp_diag=>get_tool_defs_json( ).
+*   sap_tcode_info, sap_find_config, sap_read_config
+    lv_cust = zcl_abapmcp_cust=>get_tool_defs_json( ).
+*   sap_transport_search, sap_object_transports, sap_search_source
+    lv_cts = zcl_abapmcp_cts=>get_tool_defs_json( ).
+*   sap_bw_datasources, sap_bw_datasource_info, sap_bw_table_datasources
+    lv_bw = zcl_abapmcp_bw=>get_tool_defs_json( ).
+*   sap_whoami
+    lv_who = zcl_abapmcp_whoami=>get_tool_defs_json( ).
+
+
+    CONCATENATE
+      `[`
+      `{"name":"sap_get_source",`
+      ` "description":"Read ABAP source of a custom program, include or class. Over 400 lines, the first `
+      `call returns a skeleton of the WHOLE object - tables read and written, FMs and BAPIs called, every `
+      `routine with a complexity score - plus the routines with the most logic. Then call again with `
+      `routine set to read one in full; prefer that over line ranges.",`
+      ` "input_schema":{"type":"object","properties":{`
+      `   "name":{"type":"string","description":"Program, include or class, e.g. ZCL_FOO."},`
+      `   "routine":{"type":"string","description":"One routine from the skeleton's list."},`
+      `   "from_line":{"type":"integer","description":"Only for includes without routines."},`
+      `   "to_line":{"type":"integer","description":"Only for includes without routines."}},`
+      `   "required":["name"]}},`
+      `{"name":"sap_get_ddic",`
+      ` "description":"Read the field list of a DDIC table or structure - custom or SAP standard: field `
+      `names, data types, lengths, decimals, key flags, data elements and descriptions. Call this before `
+      `writing a SELECT or declaring a work area, or before naming a configuration table, so names and `
+      `types match the real system rather than being guessed. Returns the structure only, never rows.",`
+      ` "input_schema":{"type":"object","properties":{`
+      `   "name":{"type":"string","description":"Table or structure name, e.g. ZABAPMCP_LOG or T001W."}},`
+      `   "required":["name"]}},`
+      `{"name":"sap_search_objects",`
+      ` "description":"Search the repository directory for custom objects matching a NAME pattern. `
+      `This matches object names only - it cannot find which programs use an object. For that use `
+      `sap_where_used.",`
+      ` "input_schema":{"type":"object","properties":{`
+      `   "pattern":{"type":"string","description":"Pattern with * wildcards, must start with Z or Y, e.g. ZFI*."},`
+      `   "max_results":{"type":"integer","description":"Maximum hits, 1-100. Default 50."}},`
+      `   "required":["pattern"]}},`
+      `{"name":"sap_where_used",`
+      ` "description":"Where-used list for any custom object: tables, structures, data elements, function `
+      `modules, programs, classes, interfaces, methods, transactions and FORM routines. Reads the same `
+      `cross-reference indexes as SE11 and SE80. Each hit gives the include, the owning object where the `
+      `include belongs to a class, and how it is used. Use this whenever asked where something is used - `
+      `never guess candidates and read their source one by one.",`
+      ` "input_schema":{"type":"object","properties":{`
+      `   "name":{"type":"string","description":"Any custom object name, e.g. ZABAPMCP_LOG."}},`
+      `   "required":["name"]}}`
+      `,`
+       lv_sync
+      `,`
+       lv_diag
+      `,`
+       lv_cust
+      `,`
+       lv_cts
+      `,`
+       lv_bw
+      `,`
+       lv_who
+      `]`
+      INTO lv_json.
+
+    ro_json = zcl_ajson=>parse( lv_json ).
+
+*   ---- drop anything switched off, or not the caller's -------------
+*   Deleting from the parsed array keeps one catalogue definition and
+*   avoids building the JSON conditionally, which would be far easier
+*   to get wrong. ZCL_AI_AUTH=>TOOL_VISIBLE keeps only the tool groups
+*   the caller holds (Z_AI_TOOL), so the model never tries a tool that
+*   would be refused (23.10.2026).
+    lt_mem = ro_json->members( '' ).
+
+    LOOP AT lt_mem INTO lv_mem.
+      CONCATENATE '/' lv_mem '/name' INTO lv_path.
+      lv_tool = ro_json->get( lv_path ).
+      IF is_enabled( lv_tool ) = abap_false
+        OR zcl_ai_auth=>tool_visible( lv_tool ) = abap_false.
+        CONCATENATE '/' lv_mem INTO lv_path.
+        ro_json->delete( lv_path ).
+      ENDIF.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD is_authorised.
 *&---------------------------------------------------------------------*
+*& The access check of the MCP tools, for the ICF handler and for any
+*& program that calls a tool directly - not over HTTP. A thin wrapper:
+*& ZCL_AI_AUTH checks the channel the caller names (Z_AI_CHAN), or
+*& ZMCP_USE (ZUSER = own user, ACTVT 03) while AUTH_MODE is LEGACY or
+*& DUAL. New code calls ZCL_AI_AUTH directly.
+*&---------------------------------------------------------------------*
+
+    rv_ok = zcl_ai_auth=>check_channel( im_channel ).
+
+  ENDMETHOD.
+
+
+  METHOD is_enabled.
+
+    DATA lv_list TYPE zabapmcp_cfg-cfg_value.
+    DATA lv_up   TYPE string.
+    DATA lv_hit  TYPE string.
+
+    rv_ok = abap_true.
+
+    SELECT SINGLE cfg_value FROM zabapmcp_cfg INTO lv_list
+      WHERE cfg_key = 'TOOLS_DISABLED'.
+
+    IF sy-subrc <> 0 OR lv_list IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    lv_up = lv_list.
+    TRANSLATE lv_up TO UPPER CASE.
+
+    lv_hit = iv_tool.
+    TRANSLATE lv_hit TO UPPER CASE.
+    CONDENSE lv_hit.
+
+*   substring match is enough - tool names are distinct and none is a
+*   prefix of another
+    IF lv_up CS lv_hit.
+      rv_ok = abap_false.
+    ENDIF.
+
+  ENDMETHOD.
+
+
   METHOD read_class_source.
 
     DATA lv_inc    TYPE string.
@@ -552,104 +832,7 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
 
   ENDMETHOD.
 
-*&---------------------------------------------------------------------*
-  METHOD append_report.
 
-    DATA lv_prog TYPE program.
-    DATA lt_tmp  TYPE string_table.
-    DATA lv_hdr  TYPE string.
-
-    lv_prog = iv_prog.
-
-    READ REPORT lv_prog INTO lt_tmp.
-    IF sy-subrc <> 0 OR lt_tmp IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    CONCATENATE '*--- ' iv_prog ' ---*' INTO lv_hdr.
-    APPEND lv_hdr TO ct_source.
-    APPEND LINES OF lt_tmp TO ct_source.
-
-  ENDMETHOD.
-
-*&---------------------------------------------------------------------*
-  METHOD get_ddic.
-
-    DATA lo_out   TYPE REF TO zcl_ajson.
-    DATA lv_name  TYPE ddobjname.
-    DATA lt_dfies TYPE STANDARD TABLE OF dfies.
-    DATA ls_dfies TYPE dfies.
-    DATA lv_idx   TYPE i.
-    DATA lv_i     TYPE string.
-    DATA lv_path  TYPE string.
-    DATA lv_up    TYPE string.
-    DATA lv_key   TYPE abap_bool.
-    DATA lv_leng  TYPE i.
-    DATA lv_dec   TYPE i.
-
-    lv_up = iv_name.
-    TRANSLATE lv_up TO UPPER CASE.
-    CONDENSE lv_up.
-    lv_name = lv_up.
-
-    CALL FUNCTION 'DDIF_FIELDINFO_GET'
-      EXPORTING
-        tabname        = lv_name
-      TABLES
-        dfies_tab      = lt_dfies
-      EXCEPTIONS
-        not_found      = 1
-        internal_error = 2
-        OTHERS         = 3.
-
-    IF sy-subrc <> 0 OR lt_dfies IS INITIAL.
-      rv_json = error_json( 'Table or structure not found' ).
-      RETURN.
-    ENDIF.
-
-    lo_out = zcl_ajson=>create_empty( ).
-    lo_out->set( iv_path = '/object' iv_val = lv_up ).
-    lo_out->touch_array( '/fields' ).
-
-    LOOP AT lt_dfies INTO ls_dfies.
-      lv_idx = sy-tabix.
-      lv_i = lv_idx.
-      CONDENSE lv_i.
-
-      CONCATENATE '/fields/' lv_i '/name' INTO lv_path.
-      lo_out->set( iv_path = lv_path iv_val = ls_dfies-fieldname ).
-
-      CONCATENATE '/fields/' lv_i '/type' INTO lv_path.
-      lo_out->set( iv_path = lv_path iv_val = ls_dfies-datatype ).
-
-      lv_leng = ls_dfies-leng.
-      CONCATENATE '/fields/' lv_i '/length' INTO lv_path.
-      lo_out->set_integer( iv_path = lv_path iv_val = lv_leng ).
-
-      lv_dec = ls_dfies-decimals.
-      CONCATENATE '/fields/' lv_i '/decimals' INTO lv_path.
-      lo_out->set_integer( iv_path = lv_path iv_val = lv_dec ).
-
-      IF ls_dfies-keyflag = abap_true.
-        lv_key = abap_true.
-      ELSE.
-        lv_key = abap_false.
-      ENDIF.
-      CONCATENATE '/fields/' lv_i '/key' INTO lv_path.
-      lo_out->set_boolean( iv_path = lv_path iv_val = lv_key ).
-
-      CONCATENATE '/fields/' lv_i '/rollname' INTO lv_path.
-      lo_out->set( iv_path = lv_path iv_val = ls_dfies-rollname ).
-
-      CONCATENATE '/fields/' lv_i '/text' INTO lv_path.
-      lo_out->set( iv_path = lv_path iv_val = ls_dfies-fieldtext ).
-    ENDLOOP.
-
-    rv_json = lo_out->stringify( ).
-
-  ENDMETHOD.
-
-*&---------------------------------------------------------------------*
   METHOD search_objects.
 
     TYPES: BEGIN OF ty_hit,
@@ -666,6 +849,8 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
     DATA lv_idx  TYPE i.
     DATA lv_i    TYPE string.
     DATA lv_path TYPE string.
+    DATA lv_rows TYPE i.
+    DATA lv_more TYPE abap_bool.
 
     lv_pat = iv_pattern.
     TRANSLATE lv_pat TO UPPER CASE.
@@ -673,14 +858,21 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
     REPLACE ALL OCCURRENCES OF '*' IN lv_pat WITH '%'.
     lv_like = lv_pat.
 
+*   one row more than asked for tells whether the list is cut off, so
+*   the answer can say so instead of looking complete
+    lv_rows = iv_max + 1.
     SELECT obj_name object devclass
       FROM tadir
       INTO TABLE lt_hit
-      UP TO iv_max ROWS
+      UP TO lv_rows ROWS
       WHERE pgmid    = 'R3TR'
         AND obj_name LIKE lv_like
         AND ( obj_name LIKE 'Z%' OR obj_name LIKE 'Y%' )
         AND delflag  = space.
+    IF lines( lt_hit ) > iv_max.
+      DELETE lt_hit INDEX lv_rows.
+      lv_more = abap_true.
+    ENDIF.
 
     lo_out = zcl_ajson=>create_empty( ).
     lo_out->touch_array( '/results' ).
@@ -701,12 +893,17 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
     ENDLOOP.
 
     lo_out->set_integer( iv_path = '/count' iv_val = lv_idx ).
+    IF lv_more = abap_true.
+      lo_out->set_boolean( iv_path = '/truncated' iv_val = abap_true ).
+      lo_out->set( iv_path = '/note'
+                   iv_val  = 'More objects match than were returned. Raise max_results (at most 100) or narrow the pattern - the list is not complete.' ).
+    ENDIF.
 
     rv_json = lo_out->stringify( ).
 
   ENDMETHOD.
 
-*&---------------------------------------------------------------------*
+
   METHOD where_used.
 
     TYPES: BEGIN OF ty_hit,
@@ -813,20 +1010,5 @@ CLASS zcl_abapmcp_tools IMPLEMENTATION.
 
   ENDMETHOD.
 
-*&---------------------------------------------------------------------*
-  METHOD error_json.
-
-    DATA lo_out TYPE REF TO zcl_ajson.
-    DATA lx     TYPE REF TO cx_root.
-
-    TRY.
-        lo_out = zcl_ajson=>create_empty( ).
-        lo_out->set( iv_path = '/error' iv_val = iv_msg ).
-        rv_json = lo_out->stringify( ).
-      CATCH cx_root INTO lx.
-        rv_json = '{"error":"internal"}'.
-    ENDTRY.
-
-  ENDMETHOD.
 
 ENDCLASS.

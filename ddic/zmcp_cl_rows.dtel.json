@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_ROWS",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_COUNT",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "Rows or hits returned to the caller",
+    "reptext": "Returned",
+    "scrtext_s": "Returned",
+    "scrtext_m": "Rows returned",
+    "scrtext_l": "Rows or hits returned",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

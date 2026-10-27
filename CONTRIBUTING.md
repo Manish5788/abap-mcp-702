@@ -2,8 +2,11 @@
 
 ## Before you open a pull request
 
-**Keep it read-only.** Every tool must be a `SELECT` or a `READ REPORT`. The
-absence of a write path is the design; a PR that adds one will not be merged.
+**Keep the MCP endpoint read-only.** Every tool behind `/sap/bc/mcp` must be a
+`SELECT`, a `READ REPORT` or a standard read API. A PR that adds a writing tool
+to the MCP server will not be merged. Writing belongs only in the separate,
+optional `abapsync/` add-on, which has its own ICF node and runs in development
+systems only.
 
 **NetWeaver 7.02 syntax only.** This project exists because 7.02 systems are
 excluded from everything else, so it must actually compile there:
@@ -34,6 +37,6 @@ matrix here is thin and that information is worth more than the code.
 
 ## What is out of scope
 
-- Write, activation, locking, transport operations
+- Write, activation, locking, transport operations in the MCP server
 - Anything requiring ADT — that defeats the purpose
-- Dependencies beyond ajson
+- Dependencies beyond ajson and abapGit

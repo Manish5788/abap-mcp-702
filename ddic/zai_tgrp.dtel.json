@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZAI_TGRP",
+    "ddlanguage": "E",
+    "domname": "ZAI_TGRP",
+    "headlen": "5",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "AI tools: tool group",
+    "reptext": "Group",
+    "scrtext_s": "Tool group",
+    "scrtext_m": "AI tool group",
+    "scrtext_l": "AI tools tool group",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

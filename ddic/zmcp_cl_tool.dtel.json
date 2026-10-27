@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_TOOL",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_TOOL",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "MCP config tool",
+    "reptext": "Tool",
+    "scrtext_s": "Tool",
+    "scrtext_m": "Config tool",
+    "scrtext_l": "MCP configuration tool",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

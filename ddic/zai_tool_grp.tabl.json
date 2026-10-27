@@ -1,0 +1,53 @@
+{
+  "dd09l": {
+    "tabname": "ZAI_TOOL_GRP",
+    "as4local": "A",
+    "tabkat": "0",
+    "tabart": "APPL2",
+    "bufallow": "N"
+  },
+  "dd02v": {
+    "tabname": "ZAI_TOOL_GRP",
+    "ddlanguage": "E",
+    "tabclass": "TRANSP",
+    "clidep": "X",
+    "ddtext": "AI tools: tool to tool group (authorization Z_AI_TOOL)",
+    "mainflag": "X",
+    "contflag": "C",
+    "exclass": "1"
+  },
+  "dd03p": [
+    {
+      "fieldname": "MANDT",
+      "keyflag": "X",
+      "rollname": "MANDT",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "TOOL_NAME",
+      "keyflag": "X",
+      "rollname": "ZAI_TOOL",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "TOOL_GROUP",
+      "rollname": "ZAI_TGRP",
+      "adminfield": "0",
+      "valexi": "X",
+      "shlporigin": "F",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "ACTIVE",
+      "rollname": "XFELD",
+      "adminfield": "0",
+      "valexi": "X",
+      "shlporigin": "F",
+      "comptype": "E"
+    }
+  ]
+}

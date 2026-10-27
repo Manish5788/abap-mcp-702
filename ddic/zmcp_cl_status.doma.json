@@ -1,0 +1,31 @@
+{
+  "dd01v": {
+    "domname": "ZMCP_CL_STATUS",
+    "ddlanguage": "E",
+    "datatype": "CHAR",
+    "leng": "000001",
+    "outputlen": "000001",
+    "valexi": "X",
+    "ddtext": "MCP config tool call status"
+  },
+  "dd07v": [
+    {
+      "valpos": "0001",
+      "ddlanguage": "E",
+      "domvalue_l": "O",
+      "ddtext": "OK"
+    },
+    {
+      "valpos": "0002",
+      "ddlanguage": "E",
+      "domvalue_l": "R",
+      "ddtext": "Refused (policy or authorization)"
+    },
+    {
+      "valpos": "0003",
+      "ddlanguage": "E",
+      "domvalue_l": "E",
+      "ddtext": "Error"
+    }
+  ]
+}

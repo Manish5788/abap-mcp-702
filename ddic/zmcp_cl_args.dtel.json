@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_ARGS",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_TEXT",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "MCP config tool call arguments (JSON)",
+    "reptext": "Arguments",
+    "scrtext_s": "Arguments",
+    "scrtext_m": "Call arguments",
+    "scrtext_l": "Call arguments (JSON, cut to 255)",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

@@ -26,7 +26,7 @@ Expected:
   "result": {
     "protocolVersion": "2025-06-18",
     "capabilities": { "tools": { "listChanged": false } },
-    "serverInfo": { "name": "abap-mcp-702", "version": "0.1.0" }
+    "serverInfo": { "name": "abap-mcp-702", "version": "0.2.0" }
   }
 }
 ```
@@ -95,8 +95,9 @@ claude mcp add --transport http sap-ecc \
   --header 'Authorization: Basic BASE64_USER_COLON_PASSWORD'
 ```
 
-Then `claude mcp list` should show it connected, and the four tools appear in
-the session.
+Then `claude mcp list` should show it connected, and the tools of your tool
+groups appear in the session. Call `sap_whoami` first: it shows system,
+client, user and which of your own authorizations pass.
 
 ---
 
@@ -136,6 +137,12 @@ certificate on a trusted network, and `SAP_MCP_DEBUG=1` to trace requests to
 stderr. Prefer a native HTTP client where you have one — the bridge is only for
 clients that cannot do HTTP at all.
 
+When SAP refuses the logon or the channel (wrong password, locked user, no
+`Z_AI_CHAN` = `MCP`, no network), the bridge still completes the MCP handshake
+and offers one tool, `sap_access_check`, whose description says what is wrong
+and what to ask for - instead of the client timing out silently. Refusals from
+`ZCL_AI_AUTH` get plain-language advice added.
+
 ---
 
 ## Authentication
@@ -163,6 +170,14 @@ common cause, and the client waits forever rather than erroring.
 
 **HTTP 401.**
 ICF node authentication. Check SICF → your node → Logon Data.
+
+**HTTP 403 "HTTPS is required".**
+You called the plain-HTTP port. Use HTTPS, or for a first test on a closed
+network set `ZABAPMCP_CFG` key `REQUIRE_SSL` = `OFF`.
+
+**Only some tools appear, or a call says "not authorised".**
+`ZCL_AI_AUTH` filters `tools/list` by the caller's tool groups. Run
+`ZABAPMCP_LOG_VIEW` and look at the `AUTH` rows, or SU53 right after the call.
 
 **HTTP 404.**
 Node not activated. In SICF, right-click the node and choose Activate Service.

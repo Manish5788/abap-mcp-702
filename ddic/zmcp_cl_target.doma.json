@@ -1,0 +1,11 @@
+{
+  "dd01v": {
+    "domname": "ZMCP_CL_TARGET",
+    "ddlanguage": "E",
+    "datatype": "CHAR",
+    "leng": "000060",
+    "outputlen": "000060",
+    "lowercase": "X",
+    "ddtext": "MCP config tool target: table, tcode or search"
+  }
+}

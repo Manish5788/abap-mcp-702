@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_STATUS",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_STATUS",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "MCP config tool call status",
+    "reptext": "St",
+    "scrtext_s": "Status",
+    "scrtext_m": "Call status",
+    "scrtext_l": "Call status (OK/Refused/Error)",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

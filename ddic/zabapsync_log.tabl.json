@@ -1,0 +1,105 @@
+{
+  "dd09l": {
+    "tabname": "ZABAPSYNC_LOG",
+    "as4local": "A",
+    "tabkat": "0",
+    "tabart": "APPL0",
+    "protokoll": "X",
+    "bufallow": "N"
+  },
+  "dd02v": {
+    "tabname": "ZABAPSYNC_LOG",
+    "ddlanguage": "E",
+    "tabclass": "TRANSP",
+    "clidep": "X",
+    "ddtext": "Log Table ABAP SYNC",
+    "mainflag": "X",
+    "contflag": "A",
+    "exclass": "4"
+  },
+  "dd03p": [
+    {
+      "fieldname": "MANDT",
+      "keyflag": "X",
+      "rollname": "MANDT",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "LOG_ID",
+      "keyflag": "X",
+      "rollname": "GUID_32",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "TSTAMP",
+      "rollname": "TIMESTAMPL",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "UNAME",
+      "rollname": "SYUNAME",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "ACTION",
+      "rollname": "CHAR10",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "OBJECT",
+      "rollname": "TROBJTYPE",
+      "adminfield": "0",
+      "shlporigin": "D",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "OBJ_NAME",
+      "rollname": "SOBJ_NAME",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "INCLUDE",
+      "rollname": "PROGNAME",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "TRKORR",
+      "rollname": "TRKORR",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "STATUS",
+      "rollname": "CHAR10",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "STATE",
+      "rollname": "CHAR1",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "NEW_HASH",
+      "rollname": "CHAR40",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "MESSAGE",
+      "rollname": "CHAR255",
+      "adminfield": "0",
+      "comptype": "E"
+    }
+  ]
+}

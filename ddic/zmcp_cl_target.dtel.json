@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_TARGET",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_TARGET",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "Table, transaction or search asked for",
+    "reptext": "Target",
+    "scrtext_s": "Target",
+    "scrtext_m": "Target object",
+    "scrtext_l": "Table, transaction or search text",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

@@ -7,49 +7,61 @@ distinction matters and a reviewer will find it if you blur it.
 
 ## The three properties that matter
 
-**Read-only by construction.** Every tool is a `SELECT` or a `READ REPORT`.
-There is no write path in the codebase. This is not a policy that could be
-relaxed; it is an absence of code.
+**The MCP endpoint is read-only.** Every tool behind `/sap/bc/mcp` is a
+`SELECT`, a `READ REPORT` or a standard read API. No tool writes, activates,
+locks or transports.
+
+The repository also contains **abapsync**, an optional add-on that *does*
+write code to development systems. It is a separate ICF service, off until you
+create and activate that node, and it refuses non-development clients. Its
+classes have to be installed because the MCP sync tools reuse their read
+helpers - see [abapsync/README.md](../abapsync/README.md). If your approval
+process needs "no write code in the system at all", this edition does not meet
+it.
 
 **Runs as the calling user.** The ICF node authenticates, and the tools then
-execute under that person's own SAP user. Anything readable through this server
-was already readable by that person in SE38.
+execute under that person's own SAP user. SAP's own checks stay in the tools:
+`S_TABU_DIS`/`S_TABU_NAM` for configuration rows, `S_TRANSPRT` for transport
+data, `S_DEVELOP` for source.
 
-**Custom namespace only.** `CHECK_CUSTOM` gates every tool before its body
-runs. Names must start with `Z` or `Y`. Enforced in ABAP, not requested in a
-prompt — a prompt rule is advice, this is a gate.
+**Custom namespace for code.** `CHECK_CUSTOM` gates every source and
+where-used tool before its body runs. Names must start with `Z` or `Y`.
+Enforced in ABAP, not requested in a prompt - a prompt rule is advice, this is
+a gate. Metadata of SAP standard objects (DDIC field lists, transactions, IMG,
+messages, authorization objects, BW DataSources) is readable by design; table
+**rows** only from configuration tables (delivery class C, G, E) and never from
+a hard blocklist (HR, payroll, user master, bank and card data).
 
 ---
 
-## What the authorisation object does, and does not, do
+## Who may use which tool - ZCL_AI_AUTH
 
-`ZABAPMCP` controls **feature access** — whether a person may use this server
-at all. It does **not** control data exposure, because the tools already run
-under that person's own authorisations.
+One class decides; no tool writes its own check for these objects. Objects and
+fields: [install.md](install.md#3-authorization-fields-and-objects).
 
-Do not describe it as a data control. A reviewer will spot the difference, and
-overclaiming on this point costs credibility on the parts that are genuinely
-strong.
+| Object | Decides |
+|---|---|
+| `Z_AI_CHAN` | May the user come in through this channel (`MCP`)? |
+| `Z_AI_TOOL` | May the user call a tool of this group? Tool -> group is table `ZAI_TOOL_GRP`; a tool without an active row is refused, and `tools/list` shows only the caller's tools |
+| `Z_AI_SCOPE` | Other users' open requests and dumps (`ANY`) or only one's own (`OWN`); which packages' code may be read |
+| `Z_AI_ADM` | Tool switches and the log viewers |
+| `ZMCP_USE` | The simple gate: one object, `ACTVT 03` |
 
-### Creating it
+`ZABAPMCP_CFG` key `AUTH_MODE` chooses the rule:
 
-Optional. If the object does not exist, `CHECK_AUTH` treats that as "not
-configured" and allows the call, so a fresh install works without SU21 work.
-Create the object to switch gating on.
+| Mode | Effect |
+|---|---|
+| `LEGACY` (default) | `ZMCP_USE` alone decides |
+| `DUAL` | `ZMCP_USE` decides; where the `Z_AI_*` objects would refuse, a row with status `W` goes to `ZABAPMCP_LOG` - run this while building roles to see what is missing |
+| `NEW` | The `Z_AI_*` objects decide; refusals are logged with status `R` |
 
-SU21, object class as you prefer:
+`AUTHORITY-CHECK` on an object that does not exist fails, so nothing works
+until the object of the active mode is created and granted. That is
+deliberate: a fresh install is closed, not open.
 
-```
-ZABAPMCP   MCP server access
-  ACTVT    Activity   03 (display)
-```
-
-Then grant `ZABAPMCP` with `ACTVT = 03` in the roles that should reach the
-server. Anyone without it gets a clean 403.
-
-If you want per-tool gating, add a second field and extend `CHECK_AUTH` to take
-the tool name — the hook is there, deliberately unused, because most
-deployments will not need it.
+These objects control **feature access**. They do not widen data exposure -
+the tools still run under the caller's own SAP authorizations. Do not describe
+them as a data control.
 
 ---
 
@@ -85,14 +97,19 @@ report doing `DELETE FROM zabapmcp_log WHERE created_on < lv_cutoff.` is the
 whole implementation.
 
 Consider a dedicated authorisation group on the table so it is not readable by
-anyone with broad `S_TABU_DIS`.
+anyone with broad `S_TABU_DIS`. The same applies to `ZMCP_CUST_LOG`, which
+records every configuration lookup with its arguments (`CUST_LOG` = `OFF`
+switches it off). The viewers `ZABAPMCP_LOG_VIEW` and `ZABAPMCP_CUSTLOG_VIEW`
+additionally need `Z_AI_ADM` = `LOG`.
 
 ---
 
 ## Transport security
 
 Use HTTPS on the ICF node. Basic auth over plain HTTP puts SAP credentials on
-the wire in base64, which is encoding, not encryption.
+the wire in base64, which is encoding, not encryption. The server refuses a
+plain-HTTP call with 403 unless `ZABAPMCP_CFG` key `REQUIRE_SSL` is `OFF` -
+keep that override for a first test on a closed network only.
 
 For a shared deployment, configure the node for whatever your landscape already
 uses — SSO, X.509, SAML — rather than distributing passwords. The server does

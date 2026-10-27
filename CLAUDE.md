@@ -36,7 +36,7 @@ DDIC field pass by reference, so lengths must match exactly. `STRING` into
 correctly typed local:
 
 ```abap
-DATA lv_err_txt TYPE zai_api_log-err_text.
+DATA lv_err_txt TYPE zabapmcp_log-err_text.
 lv_err_txt = ev_error.
 ```
 
@@ -52,15 +52,16 @@ and took two debugging cycles to find.
 Offset **writes** into `STRING` or `XSTRING` are illegal. Reading
 `iv_data+lv_i(1)` is fine; writing `rv_out+lv_i(1) = x` is not.
 
-### Read-only, by construction
+### The MCP endpoint is read-only
 
-Every tool is a `SELECT` or a `READ REPORT`. There is no write path in this
-codebase, and that absence is the design — it is what makes the server
-deployable without a lengthy approval process.
+Every tool behind `/sap/bc/mcp` is a `SELECT`, a `READ REPORT` or a standard
+read API. That is what makes the server deployable without a lengthy approval
+process.
 
-**Do not add one.** Not activation, not transport operations, not object
-creation, not even "just for DEV". A pull request that adds a write path will
-not be merged.
+**Do not add a writing tool to it.** Not activation, not transport operations,
+not object creation, not even "just for DEV". The only write path in the repo
+is `abapsync/` - a separate ICF service, development systems only, off until
+its node is activated. Keep it there and keep it separate.
 
 ### Custom namespace only
 
@@ -70,17 +71,27 @@ prompt rule is advice, this is a gate.
 
 ### Dependencies
 
-Only [ajson](https://github.com/sbcgua/ajson). Do not add more. Every extra
-dependency is another thing a stranger has to install before this works.
+[ajson](https://github.com/sbcgua/ajson) for JSON, and abapGit's developer
+version, whose global classes the sync tools and abapsync reuse. Do not add
+more. Every extra dependency is another thing a stranger has to install before
+this works.
 
 ## Architecture
 
 ```
 ICF node /sap/bc/mcp
-  ZCL_ABAPMCP_SERVER      JSON-RPC 2.0, MCP protocol, dispatch
-    ZCL_ABAPMCP_TOOLS     the four tools, namespace guard
-      ZCL_ABAPMCP_STRUCTURE   static analysis and source compression
+  ZCL_ABAPMCP_SERVER        JSON-RPC 2.0, MCP protocol, dispatch
+    ZCL_AI_AUTH             who may come in and call which tool
+    ZCL_ABAPMCP_TOOLS       core tools, namespace guard, plug-in dispatch
+      ZCL_ABAPMCP_STRUCTURE source skeleton and compression
+      plug-ins              _CUST (config), _CTS (transports), _DIAG (dumps),
+                            _BW (DataSources), _WHOAMI, _SYNC (exact source)
+abapsync/ (optional, own ICF node)  ZCL_ABAPSYNC_* - push to DEV
 ```
+
+A plug-in class has `GET_TOOL_DEFS_JSON`, `HANDLES` and `EXECUTE`;
+`ZCL_ABAPMCP_TOOLS` splices the definitions into `tools/list` and hands a call
+to the plug-in whose `HANDLES` is true.
 
 `ZCL_ABAPMCP_SERVER` knows about MCP and nothing about ABAP repository
 internals. `ZCL_ABAPMCP_TOOLS` knows about the repository and nothing about
@@ -163,10 +174,12 @@ always returns a string, so `copy_id` reads `get_node_type` separately and uses
 `set_integer` when the node was a number. Do not simplify this back to a single
 `set`.
 
-**`check_auth` allows the call when the auth object does not exist.** That is
-deliberate. Refusing until someone has done SU21 work makes the first five
-minutes of every install a support question. An administrator switches gating
-on by creating the object.
+**Authorization is decided in one place.** `ZCL_AI_AUTH` - channel, tool
+group, owner and package scope, administration - with `AUTH_MODE` choosing
+between the simple `ZMCP_USE` gate and the `Z_AI_*` objects. A missing object
+means refused, not allowed. Do not add `AUTHORITY-CHECK`s for these objects in
+tools; SAP's own checks (`S_TABU_DIS`, `S_TRANSPRT`, `S_DEVELOP`) stay in the
+tools.
 
 ## Tool enablement
 
@@ -185,7 +198,8 @@ There is no unit test framework here — it needs a live SAP system.
 Minimum manual test before any commit:
 
 1. `initialize` returns capabilities and `serverInfo`
-2. `tools/list` returns four tools with `inputSchema` (camelCase)
+2. `tools/list` returns the caller's tools (21 with every group) with
+   `inputSchema` (camelCase)
 3. `tools/call` on `sap_get_ddic` with a `Z` table returns fields
 4. `tools/call` on `sap_get_ddic` with `MARA` returns `isError: true`
 5. `sap_get_source` on an object over 400 lines returns `mode: STRUCTURE`
@@ -203,18 +217,23 @@ result is the pass condition.
 
 ## When adding a tool
 
-1. Add the method to `ZCL_ABAPMCP_TOOLS` private section
-2. Add a `WHEN` branch in `EXECUTE`, **with the `CHECK_CUSTOM` guard**
-3. Add the definition to `GET_TOOL_DEFS` — watch the commas, every tool object
-   ends `}},` except the last which ends `}}` before the closing `]`
-4. Write the description to say what the tool returns **and what it does not**.
+1. Add the method to `ZCL_ABAPMCP_TOOLS` private section, or to a plug-in
+   class
+2. Add a `WHEN` branch in `EXECUTE`, **with the `CHECK_CUSTOM` guard** where
+   the argument names a repository object
+3. Add the definition to `GET_TOOL_DEFS` (or the plug-in's
+   `GET_TOOL_DEFS_JSON`) — watch the commas, every tool object ends `}},`
+   except the last which ends `}}` before the closing `]`
+4. Add a row to `ZAI_TOOL_GRP_SEED` - a tool without a tool group is refused
+5. Write the description to say what the tool returns **and what it does not**.
    Overlapping descriptions degrade the model's tool selection more than tool
    count does. `sap_search_objects` explicitly says it cannot find usage and
    points at `sap_where_used`, because without that the model kept reaching for
    the wrong one.
 
-Keep the total under about ten tools. Beyond that, selection accuracy falls off
-and it is better to consolidate related tools behind a `mode` parameter.
+Watch the size of `tools/list`: every description is sent to the model on every
+session. Keep descriptions short, and switch off groups a site does not need
+(`TOOLS_DISABLED`, or no `Z_AI_TOOL` for the group) rather than adding modes.
 
 ## Style
 

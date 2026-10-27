@@ -1,0 +1,11 @@
+{
+  "dd01v": {
+    "domname": "ZAI_TOOL",
+    "ddlanguage": "E",
+    "datatype": "CHAR",
+    "leng": "000040",
+    "outputlen": "000040",
+    "lowercase": "X",
+    "ddtext": "AI tools: MCP tool name"
+  }
+}

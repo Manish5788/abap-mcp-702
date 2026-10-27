@@ -1,0 +1,124 @@
+{
+  "dd09l": {
+    "tabname": "ZABAPMCP_LOG",
+    "as4local": "A",
+    "tabkat": "0",
+    "tabart": "APPL0",
+    "protokoll": "X",
+    "bufallow": "N"
+  },
+  "dd02v": {
+    "tabname": "ZABAPMCP_LOG",
+    "ddlanguage": "E",
+    "tabclass": "TRANSP",
+    "clidep": "X",
+    "ddtext": "MCP request log",
+    "mainflag": "X",
+    "contflag": "A",
+    "exclass": "4"
+  },
+  "dd03p": [
+    {
+      "fieldname": "MANDT",
+      "keyflag": "X",
+      "rollname": "MANDT",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "GUID",
+      "keyflag": "X",
+      "rollname": "CHAR32",
+      "adminfield": "0",
+      "notnull": "X",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "CREATED_ON",
+      "rollname": "ERDAT",
+      "adminfield": "0",
+      "shlporigin": "T",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "ERZET",
+      "rollname": "ERZET",
+      "adminfield": "0",
+      "shlporigin": "T",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "ERNAM",
+      "rollname": "ERNAM",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "METHOD",
+      "rollname": "CHAR40",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "TOOL_NAME",
+      "rollname": "CHAR40",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "HAS_ID",
+      "rollname": "CHAR1",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "REQ_BODY",
+      "rollname": "STRING",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "REQ_BYTES",
+      "rollname": "INT4",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "RESP_BODY",
+      "rollname": "STRING",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "RESP_BYTES",
+      "rollname": "INT4",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "HTTP_CODE",
+      "rollname": "CHAR3",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "DURATION",
+      "rollname": "INT4",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "STATUS",
+      "rollname": "CHAR1",
+      "adminfield": "0",
+      "comptype": "E"
+    },
+    {
+      "fieldname": "ERR_TEXT",
+      "rollname": "CHAR255",
+      "adminfield": "0",
+      "comptype": "E"
+    }
+  ]
+}

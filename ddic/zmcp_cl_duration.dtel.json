@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZMCP_CL_DURATION",
+    "ddlanguage": "E",
+    "domname": "ZMCP_CL_COUNT",
+    "headlen": "20",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "Call duration in milliseconds",
+    "reptext": "ms",
+    "scrtext_s": "ms",
+    "scrtext_m": "Duration (ms)",
+    "scrtext_l": "Call duration in milliseconds",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

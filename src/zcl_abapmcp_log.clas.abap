@@ -1,3 +1,4 @@
+CLASS zcl_abapmcp_log DEFINITION PUBLIC FINAL CREATE PUBLIC.
 *&---------------------------------------------------------------------*
 *& Request log for the MCP server.
 *&
@@ -24,8 +25,6 @@
 *&
 *& NW 7.02 syntax only.
 *&---------------------------------------------------------------------*
-CLASS zcl_abapmcp_log DEFINITION PUBLIC FINAL CREATE PUBLIC.
-
   PUBLIC SECTION.
 
     CONSTANTS c_max_body TYPE i VALUE 20000.
@@ -54,6 +53,8 @@ CLASS zcl_abapmcp_log DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CLASS-METHODS capture_bodies
       RETURNING VALUE(rv_on) TYPE abap_bool.
 
+PROTECTED SECTION.
+
   PRIVATE SECTION.
 
     CLASS-DATA gv_t0 TYPE i.
@@ -67,7 +68,74 @@ ENDCLASS.
 
 CLASS zcl_abapmcp_log IMPLEMENTATION.
 
-*&---------------------------------------------------------------------*
+  METHOD capture_bodies.
+
+    DATA lv_val TYPE zabapmcp_cfg-cfg_value.
+
+    rv_on = abap_true.
+
+    SELECT SINGLE cfg_value FROM zabapmcp_cfg INTO lv_val
+      WHERE cfg_key = 'CAPTURE_BODIES'.
+
+    IF sy-subrc = 0 AND lv_val = 'OFF'.
+      rv_on = abap_false.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD close.
+
+    DATA lv_guid TYPE zabapmcp_log-guid.
+    DATA lv_resp TYPE string.
+    DATA lv_code TYPE zabapmcp_log-http_code.
+    DATA lv_err  TYPE zabapmcp_log-err_text.
+    DATA lv_stat TYPE zabapmcp_log-status.
+    DATA lv_dur  TYPE i.
+    DATA lv_t1   TYPE i.
+    DATA lx      TYPE REF TO cx_root.
+    DATA lv_bytes TYPE i. " <-- 1. Declare a new variable for the length
+
+    IF iv_guid IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        GET RUN TIME FIELD lv_t1.
+        lv_dur = ( lv_t1 - gv_t0 ) / 1000.       "microseconds to ms
+
+        lv_guid = iv_guid.
+        lv_code = iv_code.
+        lv_err  = iv_error.
+
+        IF iv_error IS NOT INITIAL.
+          lv_stat = 'E'.
+        ELSE.
+          lv_stat = 'S'.
+        ENDIF.
+
+        IF capture_bodies( ) = abap_true.
+          lv_resp = truncate( iv_response ).
+        ELSE.
+          lv_resp = '(body capture disabled)'.
+        ENDIF.
+     lv_bytes = strlen( iv_response ). " <-- 2. Calculate the length here
+        UPDATE zabapmcp_log
+          SET resp_body  = lv_resp
+              resp_bytes = lv_bytes
+              http_code  = lv_code
+              duration   = lv_dur
+              status     = lv_stat
+              err_text   = lv_err
+          WHERE guid = lv_guid.
+        COMMIT WORK.
+
+      CATCH cx_root INTO lx.
+    ENDTRY.
+
+  ENDMETHOD.
+
+
   METHOD open.
 
     DATA ls_log  TYPE zabapmcp_log.
@@ -87,8 +155,8 @@ CLASS zcl_abapmcp_log IMPLEMENTATION.
         CLEAR ls_log.
         ls_log-guid       = lv_guid.
         ls_log-created_on = sy-datum.
-        ls_log-created_at = sy-uzeit.
-        ls_log-uname      = sy-uname.
+        ls_log-erzet      = sy-uzeit.
+        ls_log-ernam      = sy-uname.
         ls_log-status     = 'O'.          "open
 
         IF capture_bodies( ) = abap_true.
@@ -109,7 +177,7 @@ CLASS zcl_abapmcp_log IMPLEMENTATION.
 
   ENDMETHOD.
 
-*&---------------------------------------------------------------------*
+
   METHOD set_method.
 
     DATA lv_guid TYPE zabapmcp_log-guid.
@@ -145,74 +213,7 @@ CLASS zcl_abapmcp_log IMPLEMENTATION.
 
   ENDMETHOD.
 
-*&---------------------------------------------------------------------*
-  METHOD close.
 
-    DATA lv_guid TYPE zabapmcp_log-guid.
-    DATA lv_resp TYPE string.
-    DATA lv_code TYPE zabapmcp_log-http_code.
-    DATA lv_err  TYPE zabapmcp_log-err_text.
-    DATA lv_stat TYPE zabapmcp_log-status.
-    DATA lv_dur  TYPE i.
-    DATA lv_t1   TYPE i.
-    DATA lx      TYPE REF TO cx_root.
-
-    IF iv_guid IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    TRY.
-        GET RUN TIME FIELD lv_t1.
-        lv_dur = ( lv_t1 - gv_t0 ) / 1000.       "microseconds to ms
-
-        lv_guid = iv_guid.
-        lv_code = iv_code.
-        lv_err  = iv_error.
-
-        IF iv_error IS NOT INITIAL.
-          lv_stat = 'E'.
-        ELSE.
-          lv_stat = 'S'.
-        ENDIF.
-
-        IF capture_bodies( ) = abap_true.
-          lv_resp = truncate( iv_response ).
-        ELSE.
-          lv_resp = '(body capture disabled)'.
-        ENDIF.
-
-        UPDATE zabapmcp_log
-          SET resp_body  = lv_resp
-              resp_bytes = strlen( iv_response )
-              http_code  = lv_code
-              duration   = lv_dur
-              status     = lv_stat
-              err_text   = lv_err
-          WHERE guid = lv_guid.
-        COMMIT WORK.
-
-      CATCH cx_root INTO lx.
-    ENDTRY.
-
-  ENDMETHOD.
-
-*&---------------------------------------------------------------------*
-  METHOD capture_bodies.
-
-    DATA lv_val TYPE zabapmcp_cfg-cfg_value.
-
-    rv_on = abap_true.
-
-    SELECT SINGLE cfg_value FROM zabapmcp_cfg INTO lv_val
-      WHERE cfg_key = 'CAPTURE_BODIES'.
-
-    IF sy-subrc = 0 AND lv_val = 'OFF'.
-      rv_on = abap_false.
-    ENDIF.
-
-  ENDMETHOD.
-
-*&---------------------------------------------------------------------*
   METHOD truncate.
 
     rv_out = iv_in.
@@ -223,5 +224,6 @@ CLASS zcl_abapmcp_log IMPLEMENTATION.
     ENDIF.
 
   ENDMETHOD.
+
 
 ENDCLASS.

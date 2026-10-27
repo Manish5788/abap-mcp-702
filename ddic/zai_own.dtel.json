@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZAI_OWN",
+    "ddlanguage": "E",
+    "domname": "ZAI_OWN",
+    "headlen": "3",
+    "scrlen1": "10",
+    "scrlen2": "20",
+    "scrlen3": "40",
+    "ddtext": "AI tools: whose work (own or any user)",
+    "reptext": "Own",
+    "scrtext_s": "Scope",
+    "scrtext_m": "Own / any user",
+    "scrtext_l": "AI tools scope (own or any user)",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}

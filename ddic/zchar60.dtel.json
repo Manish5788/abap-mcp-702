@@ -1,0 +1,18 @@
+{
+  "dd04v": {
+    "rollname": "ZCHAR60",
+    "ddlanguage": "E",
+    "domname": "CHAR60",
+    "headlen": "21",
+    "scrlen1": "10",
+    "scrlen2": "17",
+    "scrlen3": "21",
+    "ddtext": "Description",
+    "reptext": "Description",
+    "scrtext_s": "Descrip",
+    "scrtext_m": "Description",
+    "scrtext_l": "Description",
+    "dtelmaster": "E",
+    "refkind": "D"
+  }
+}
